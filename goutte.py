@@ -135,3 +135,5 @@ if __name__ == "__main__":
             num_waves=20,
         )
         assemble_video_from_frames(frame_folder, output_video)
+        # Affiche le nom du fichier vidéo généré
+        print(f"Nom du fichier généré : {os.path.basename(output_video)}")
