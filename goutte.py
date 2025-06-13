@@ -95,15 +95,43 @@ def apply_displacement(image, src_y, src_x):
             output[y, x, 2] = image[src_y[y, x], src_x[y, x], 2]
     return output
 
-# Exemple d'utilisation :
+# Exemple d'utilisation modifié : le script prend maintenant en argument un
+# dossier contenant des images (PNG ou JPG). Pour chaque image trouvée, l'effet
+# goutte est appliqué et une vidéo MP4 est générée dans le dossier "result".
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage : python script.py chemin/image.png")
+        print("Usage : python script.py dossier_images")
         sys.exit(1)
 
-    input_image = sys.argv[1]
-    output_folder = "ripple_frames"
-    output_video = "ripple_output.mp4"
+    images_dir = sys.argv[1]
+    if not os.path.isdir(images_dir):
+        print("Le chemin spécifié n'est pas un dossier")
+        sys.exit(1)
 
-    apply_ripple_effect(input_image, output_folder, duration=5, fps=30, max_amplitude=7.0, num_waves=20)
-    assemble_video_from_frames(output_folder, output_video)
+    result_dir = "result"
+    os.makedirs(result_dir, exist_ok=True)
+
+    images = sorted(
+        [f for f in os.listdir(images_dir) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    )
+
+    if not images:
+        print("Aucune image PNG ou JPG trouvée dans le dossier")
+        sys.exit(1)
+
+    for image_name in images:
+        input_image = os.path.join(images_dir, image_name)
+        base_name = os.path.splitext(image_name)[0]
+
+        frame_folder = os.path.join(result_dir, f"{base_name}_frames")
+        output_video = os.path.join(result_dir, base_name + ".mp4")
+
+        apply_ripple_effect(
+            input_image,
+            frame_folder,
+            duration=5,
+            fps=30,
+            max_amplitude=7.0,
+            num_waves=20,
+        )
+        assemble_video_from_frames(frame_folder, output_video)
