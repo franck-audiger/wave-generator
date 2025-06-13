@@ -7,14 +7,28 @@ import numba
 from tqdm import tqdm
 from numba import njit, prange
 
-def apply_ripple_effect(image_path, output_folder, duration=5, fps=30, max_amplitude=7.0, num_waves=20):
+def apply_ripple_effect(
+    image_path,
+    output_folder,
+    duration=5,
+    fps=30,
+    max_amplitude=7.0,
+    num_waves=20,
+    hold_end_seconds=5,  # durée en secondes de l'arrêt sur image final
+):
     # Charger l'image avec OpenCV (préserve les couleurs sans conversion implicite)
     image_bgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
     image_np = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
     height, width, _ = image_np.shape
 
-    total_frames = duration * fps
-    hold_frames = int(0.2 * fps)  # 0.5 seconde d'image stable
+    hold_start_frames = int(0.2 * fps)  # durée de l'image fixe au début
+    hold_end_frames = int(hold_end_seconds * fps)
+
+    ripple_frames = duration * fps - 2 * hold_start_frames
+    if ripple_frames < 0:
+        ripple_frames = 0
+
+    total_frames = hold_start_frames + ripple_frames + hold_end_frames
 
     # Pré-calculs
     y_indices, x_indices = np.indices((height, width))
@@ -29,12 +43,12 @@ def apply_ripple_effect(image_path, output_folder, duration=5, fps=30, max_ampli
     from tqdm import tqdm
 
     for frame_num in tqdm(range(total_frames), desc="Génération des frames", unit="frame"):
-        if frame_num < hold_frames or frame_num >= total_frames - hold_frames:
+        if frame_num < hold_start_frames or frame_num >= hold_start_frames + ripple_frames:
             # Image stable sans effet au début et à la fin
             distorted = image_np.copy()
         else:
-            time = frame_num / fps
-            progress = (frame_num - hold_frames) / (total_frames - 2 * hold_frames)
+            time = (frame_num - hold_start_frames) / fps
+            progress = (frame_num - hold_start_frames) / ripple_frames
 
             # Fréquence et portée de l'onde diminuent progressivement
             dynamic_ripple_scale = 60.0 + 100.0 * progress
@@ -95,15 +109,46 @@ def apply_displacement(image, src_y, src_x):
             output[y, x, 2] = image[src_y[y, x], src_x[y, x], 2]
     return output
 
-# Exemple d'utilisation :
+# Exemple d'utilisation modifié : le script prend maintenant en argument un
+# dossier contenant des images (PNG ou JPG). Pour chaque image trouvée, l'effet
+# goutte est appliqué et une vidéo MP4 est générée dans le dossier "result".
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage : python script.py chemin/image.png")
+        print("Usage : python script.py dossier_images")
         sys.exit(1)
 
-    input_image = sys.argv[1]
-    output_folder = "ripple_frames"
-    output_video = "ripple_output.mp4"
+    images_dir = sys.argv[1]
+    if not os.path.isdir(images_dir):
+        print("Le chemin spécifié n'est pas un dossier")
+        sys.exit(1)
 
-    apply_ripple_effect(input_image, output_folder, duration=5, fps=30, max_amplitude=7.0, num_waves=20)
-    assemble_video_from_frames(output_folder, output_video)
+    result_dir = "result"
+    os.makedirs(result_dir, exist_ok=True)
+
+    images = sorted(
+        [f for f in os.listdir(images_dir) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+    )
+
+    if not images:
+        print("Aucune image PNG ou JPG trouvée dans le dossier")
+        sys.exit(1)
+
+    for image_name in images:
+        input_image = os.path.join(images_dir, image_name)
+        base_name = os.path.splitext(image_name)[0]
+
+        frame_folder = os.path.join(result_dir, f"{base_name}_frames")
+        output_video = os.path.join(result_dir, base_name + ".mp4")
+
+        apply_ripple_effect(
+            input_image,
+            frame_folder,
+            duration=5,
+            fps=30,
+            max_amplitude=7.0,
+            num_waves=20,
+            hold_end_seconds=5,
+        )
+        assemble_video_from_frames(frame_folder, output_video)
+        # Affiche le nom du fichier vidéo généré
+        print(f"Nom du fichier généré : {os.path.basename(output_video)}")
