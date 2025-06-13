@@ -115,13 +115,12 @@ def apply_displacement(image, src_y, src_x):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage : python script.py dossier_images")
-        sys.exit(1)
 
     images_dir = sys.argv[1]
     if not os.path.isdir(images_dir):
         print("Le chemin spécifié n'est pas un dossier")
         sys.exit(1)
-
+        
     result_dir = "result"
     os.makedirs(result_dir, exist_ok=True)
 
